@@ -18,24 +18,85 @@ local function scan(source)
     return c
   end
 
+  local function match(expected)
+    if isatend() then return false end
+    if source:sub(current, current) ~= expected then return false end
+    current = current + 1
+    return true
+  end
+
+  local function peek()
+    if isatend() then return "\0" end
+    return source:sub(current, current)
+  end
+
   local function addtoken(type, literal)
-    local text = source:sub(start, current)
-    tokens[#tokens+1] = token(type, text, literal, line)
+    local text = source:sub(start, current - 1)
+    tokens[#tokens + 1] = token(type, text, literal, line)
   end
 
   local function scantoken()
     local c = advance()
-    if c == "(" then addtoken(tt.LEFT_PAREN)
-    elseif c == ")" then addtoken(tt.RIGHT_PAREN)
-    elseif c == "{" then addtoken(tt.LEFT_BRACE)
-    elseif c == "}" then addtoken(tt.RIGHT_BRACE)
-    elseif c == "," then addtoken(tt.COMMA)
-    elseif c == "." then addtoken(tt.DOT)
-    elseif c == "-" then addtoken(tt.MINUS)
-    elseif c == "+" then addtoken(tt.PLUS)
-    elseif c == ";" then addtoken(tt.SEMICOLON)
-    elseif c == "*" then addtoken(tt.STAR)
-    else e.error(line, "Unexpected character.")
+    if c == "(" then
+      addtoken(tt.LEFT_PAREN)
+    elseif c == ")" then
+      addtoken(tt.RIGHT_PAREN)
+    elseif c == "{" then
+      addtoken(tt.LEFT_BRACE)
+    elseif c == "}" then
+      addtoken(tt.RIGHT_BRACE)
+    elseif c == "," then
+      addtoken(tt.COMMA)
+    elseif c == "." then
+      addtoken(tt.DOT)
+    elseif c == "-" then
+      addtoken(tt.MINUS)
+    elseif c == "+" then
+      addtoken(tt.PLUS)
+    elseif c == ";" then
+      addtoken(tt.SEMICOLON)
+    elseif c == "*" then
+      addtoken(tt.STAR)
+    elseif c == "!" then
+      if match("=") then
+        addtoken(tt.BANG_EQUAL)
+      else
+        addtoken(tt.BANG)
+      end
+    elseif c == "=" then
+      if match("=") then
+        addtoken(tt.EQUAL_EQUAL)
+      else
+        addtoken(tt.EQUAL)
+      end
+    elseif c == "<" then
+      if match("=") then
+        addtoken(tt.LESS_EQUAL)
+      else
+        addtoken(tt.LESS)
+      end
+    elseif c == ">" then
+      if match("=") then
+        addtoken(tt.GREATER_EQUAL)
+      else
+        addtoken(tt.GREATER)
+      end
+    elseif c == "/" then
+      if match("/") then
+        -- comment goes until the end of then line
+        while peek() ~= "\n" and not isatend() do advance() end
+      else
+        addtoken(tt.SLASH)
+      end
+    elseif
+        c == " " or
+        c == "\r" or
+        c == "\t" then
+      -- ignore whitespace
+    elseif c == "\n" then
+      line = line + 1
+    else
+      e.error(line, "Unexpected character.")
     end
   end
 
@@ -45,7 +106,7 @@ local function scan(source)
     scantoken()
   end
 
-  tokens[#tokens+1] = token(tt.EOF, "", nil, line)
+  tokens[#tokens + 1] = token(tt.EOF, "", nil, line)
   return tokens
 end
 
