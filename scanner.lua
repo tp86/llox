@@ -30,9 +30,58 @@ local function scan(source)
     return source:sub(current, current)
   end
 
+  local function peeknext()
+    if current >= #source then return "\0" end
+    return source:sub(current + 1, current + 1)
+  end
+
+  local function isdigit(char)
+    return char >= "0" and char <= "9"
+  end
+
+  local function isalpha(char)
+    return (char >= "a" and char <= "z") or
+        (char >= "A" and char <= "Z") or
+        char == "_"
+  end
+
+  local function isalphanumeric(char)
+    return isalpha(char) or isdigit(char)
+  end
+
   local function addtoken(type, literal)
     local text = source:sub(start, current - 1)
     tokens[#tokens + 1] = token(type, text, literal, line)
+  end
+
+  local function string()
+    while peek() ~= '"' and not isatend() do
+      if peek() == "\n" then line = line + 1 end
+      advance()
+    end
+    if isatend() then
+      e.error(line, "Unterminated string.")
+      return
+    end
+    advance() -- the closing "
+    -- trim the surrounding quotes
+    local value = source:sub(start + 1, current - 2)
+    addtoken(tt.STRING, value)
+  end
+
+  local function number()
+    while isdigit(peek()) do advance() end
+    -- fractional part
+    if peek() == "." and isdigit(peeknext()) then
+      advance() -- consume the .
+      while isdigit(peek()) do advance() end
+    end
+    addtoken(tt.NUMBER, tonumber(source:sub(start, current - 1)))
+  end
+
+  local function identifier()
+    while isalphanumeric(peek()) do advance() end
+    addtoken(tt.IDENTIFIER)
   end
 
   local function scantoken()
@@ -88,13 +137,18 @@ local function scan(source)
       else
         addtoken(tt.SLASH)
       end
-    elseif
-        c == " " or
+    elseif c == " " or
         c == "\r" or
         c == "\t" then
       -- ignore whitespace
     elseif c == "\n" then
       line = line + 1
+    elseif c == '"' then
+      string()
+    elseif isdigit(c) then
+      number()
+    elseif isalpha(c) then
+      identifier()
     else
       e.error(line, "Unexpected character.")
     end
