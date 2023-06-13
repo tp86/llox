@@ -2,6 +2,25 @@ local tt = require("tokentype")
 local token = require("token")
 local e = require("error")
 
+local keywords = {
+  ["and"] = tt.AND,
+  ["class"] = tt.CLASS,
+  ["else"] = tt.ELSE,
+  ["false"] = tt.FALSE,
+  ["for"] = tt.FOR,
+  ["fun"] = tt.FUN,
+  ["if"] = tt.IF,
+  ["nil"] = tt.NIL,
+  ["or"] = tt.OR,
+  ["print"] = tt.PRINT,
+  ["return"] = tt.RETURN,
+  ["super"] = tt.SUPER,
+  ["this"] = tt.THIS,
+  ["true"] = tt.TRUE,
+  ["var"] = tt.VAR,
+  ["while"] = tt.WHILE,
+}
+
 local function scan(source)
   local tokens = {}
   local start = 1
@@ -81,7 +100,9 @@ local function scan(source)
 
   local function identifier()
     while isalphanumeric(peek()) do advance() end
-    addtoken(tt.IDENTIFIER)
+    local text = source:sub(start, current - 1)
+    local type = keywords[text] or tt.IDENTIFIER
+    addtoken(type)
   end
 
   local function scantoken()
