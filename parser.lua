@@ -1,5 +1,6 @@
 local tt = require("tokentype")
 local expr = require("expr")
+local e = require("error")
 
 local function parse(tokens)
   local current = 1
@@ -36,6 +37,35 @@ local function parse(tokens)
     return false
   end
 
+  local function parseerror(token, message)
+    e.error(token, message)
+    return "PARSE_ERROR"
+  end
+
+  local function consume(tokentype, message)
+    if check(tokentype) then return advance() end
+    error(parseerror(peek(), message))
+  end
+
+  local function synchronize()
+    advance()
+    while not isatend() do
+      if previous().type == tt.SEMICOLON then return end
+      local statementbeginnings = {
+        tt.CLASS,
+        tt.FUN,
+        tt.VAR,
+        tt.FOR,
+        tt.IF,
+        tt.WHILE,
+        tt.PRINT,
+        tt.RETURN,
+      }
+      if statementbeginnings[peek().type] then return end
+      advance()
+    end
+  end
+
   local function leftassociativebinary(operators, higherprecedencerule)
     return function()
       local expression = higherprecedencerule()
@@ -62,7 +92,9 @@ local function parse(tokens)
       consume(tt.RIGHT_PAREN, "Expect ')' after expression.")
       return expr.grouping(expression)
     end
+    error(parseerror(peek(), "Expect expression."))
   end
+
   local function unary()
     if match { tt.BANG, tt.MINUS } then
       local operator = previous()
@@ -80,6 +112,15 @@ local function parse(tokens)
 
   expression = function()
     return equality()
+  end
+
+  local status, result = pcall(expression)
+  if status then
+    return result
+  else
+    if result == "PARSE_ERROR" then
+      return
+    end
   end
 end
 

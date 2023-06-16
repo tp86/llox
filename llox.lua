@@ -2,12 +2,14 @@
 
 local errorhandler = require("error")
 local scantokens = require("scanner")
+local parse = require("parser")
+local astprinter = require("astprinter")
 
 local function run(source)
   local tokens = scantokens(source)
-  for _, token in ipairs(tokens) do
-    print(token)
-  end
+  local expression = parse(tokens)
+  if errorhandler.haderror then return end
+  print(astprinter.print(expression))
 end
 
 local function runfile(path)
