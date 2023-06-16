@@ -10,7 +10,7 @@ local function parenthesize(name, ...)
   local builder = {}
   table.insert(builder, "(")
   table.insert(builder, name)
-  for _, expr in ipairs{ ... } do
+  for _, expr in ipairs { ... } do
     table.insert(builder, " ")
     table.insert(builder, expr:accept(astprinter))
   end
