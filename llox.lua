@@ -3,13 +3,13 @@
 local errorhandler = require("error")
 local scantokens = require("scanner")
 local parse = require("parser")
-local astprinter = require("astprinter")
+local interpreter = require("interpreter")
 
 local function run(source)
   local tokens = scantokens(source)
   local expression = parse(tokens)
   if errorhandler.haderror then return end
-  print(astprinter.print(expression))
+  interpreter.interpret(expression)
 end
 
 local function runfile(path)
@@ -21,6 +21,7 @@ local function runfile(path)
   end
   run(bytes)
   if errorhandler.haderror then os.exit(65) end
+  if errorhandler.hadruntimeerror then os.exit(70) end
 end
 
 local function runprompt()

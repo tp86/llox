@@ -1,18 +1,19 @@
-local exprbase = {
-  accept = function(self, visitor)
-    return visitor[self.type](self)
+local visitor = require("visitor")
+local exprbase = setmetatable({
+  visitby = function(self)
+    return self.type
   end,
-}
+}, visitor.element)
 exprbase.__index = exprbase
 
 local function makeexprconstructor(name, params)
   return function(...)
-    local tbl = {}
+    local expr = {}
     for index, param_name in ipairs(params) do
-      tbl[param_name] = select(index, ...)
+      expr[param_name] = select(index, ...)
     end
-    tbl.type = name .. "_expr"
-    return setmetatable(tbl, exprbase)
+    expr.type = name .. "_expr"
+    return setmetatable(expr, exprbase)
   end
 end
 

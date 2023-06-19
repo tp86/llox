@@ -1,10 +1,5 @@
-local astprinter = {}
-local astprintermt = {
-  __index = function(_, k)
-    error(k .. "not implemented in astprinter")
-  end,
-}
-setmetatable(astprinter, astprintermt)
+local visitor = require("visitor")
+local astprinter = visitor.make("astprinter")
 
 local function parenthesize(name, ...)
   local builder = {}

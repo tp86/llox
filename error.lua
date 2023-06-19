@@ -1,6 +1,7 @@
 local tt = require("tokentype")
 
 local haderror = false
+local hadruntimeerror = false
 
 local function report(line, where, message)
   io.stderr:write(("[line %s] Error%s: %s\n"):format(line, where, message))
@@ -21,7 +22,14 @@ local function error(object, message)
   end
 end
 
+local function runtimeerror(err)
+  io.stderr:write(("%s\n[line %s]"):format(err.message, err.token.line))
+  hadruntimeerror = true
+end
+
 return {
   haderror = haderror,
+  hadruntimeerror = hadruntimeerror,
   error = error,
+  runtimeerror = runtimeerror,
 }
