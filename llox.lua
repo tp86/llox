@@ -7,9 +7,9 @@ local interpreter = require("interpreter")
 
 local function run(source)
   local tokens = scantokens(source)
-  local expression = parse(tokens)
+  local statements = parse(tokens)
   if errorhandler.haderror then return end
-  interpreter.interpret(expression)
+  interpreter.interpret(statements)
 end
 
 local function runfile(path)
@@ -26,7 +26,7 @@ end
 
 local function runprompt()
   while true do
-    print("> ")
+    io.write("> ")
     local line = io.read()
     if not line then break end
     run(line)

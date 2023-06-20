@@ -1,5 +1,6 @@
 local tt = require("tokentype")
 local expr = require("expr")
+local stmt = require("stmt")
 local e = require("error")
 
 local function parse(tokens)
@@ -114,14 +115,28 @@ local function parse(tokens)
     return equality()
   end
 
-  local status, result = pcall(expression)
-  if status then
-    return result
-  else
-    if result == "PARSE_ERROR" then
-      return
-    end
+  local function printstatement()
+    local value = expression()
+    consume(tt.SEMICOLON, "Expect ';' after value.")
+    return stmt.print(value)
   end
+
+  local function expressionstatement()
+    local expression = expression() ---@diagnostic disable-line:redefined-local
+    consume(tt.SEMICOLON, "Expect ';' after expression.")
+    return stmt.expression(expression)
+  end
+
+  local function statement()
+    if match { tt.PRINT } then return printstatement() end
+    return expressionstatement()
+  end
+
+  local statements = {}
+  while not isatend() do
+    statements[#statements + 1] = statement()
+  end
+  return statements
 end
 
 return parse

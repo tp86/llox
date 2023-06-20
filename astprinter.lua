@@ -13,16 +13,16 @@ local function parenthesize(name, ...)
   return table.concat(builder)
 end
 
-astprinter.binary_expr = function(expr)
+astprinter["expr.binary"] = function(expr)
   return parenthesize(expr.operator.lexeme, expr.left, expr.right)
 end
-astprinter.grouping_expr = function(expr)
+astprinter["expr.grouping"] = function(expr)
   return parenthesize("group", expr.expression)
 end
-astprinter.literal_expr = function(expr)
+astprinter["expr.literal"] = function(expr)
   return tostring(expr.value)
 end
-astprinter.unary_expr = function(expr)
+astprinter["expr.unary"] = function(expr)
   return parenthesize(expr.operator.lexeme, expr.right)
 end
 

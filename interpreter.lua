@@ -1,10 +1,13 @@
 local tt = require("tokentype")
-local visitor = require("visitor")
-local interpreter = visitor.make("interpreter")
+local interpreter = require("visitor").make("interpreter")
 local e = require("error")
 
 local function evaluate(expr)
   return expr:accept(interpreter)
+end
+
+local function execute(stmt)
+  stmt:accept(interpreter)
 end
 
 local function istruthy(value)
@@ -49,13 +52,13 @@ local function stringify(value)
   return tostring(value)
 end
 
-interpreter.literal_expr = function(expr)
+interpreter["expr.literal"] = function(expr)
   return expr.value
 end
-interpreter.grouping_expr = function(expr)
+interpreter["expr.grouping"] = function(expr)
   return evaluate(expr.expression)
 end
-interpreter.unary_expr = function(expr)
+interpreter["expr.unary"] = function(expr)
   local right = evaluate(expr.right)
   if expr.operator.type == tt.MINUS then
     checknumberoperands(expr.operator, right)
@@ -64,18 +67,19 @@ interpreter.unary_expr = function(expr)
     return not istruthy(right)
   end
 end
-interpreter.binary_expr = function(expr)
+interpreter["expr.binary"] = function(expr)
   local left = evaluate(expr.left)
   local right = evaluate(expr.right)
-  local optype = expr.operator.type
+  local op = expr.operator
+  local optype = op.type
   if optype == tt.MINUS then
-    checknumberoperands(expr.operator, left, right)
+    checknumberoperands(op, left, right)
     return left - right
   elseif optype == tt.SLASH then
-    checknumberoperands(expr.operator, left, right)
+    checknumberoperands(op, left, right)
     return left / right
   elseif optype == tt.STAR then
-    checknumberoperands(expr.operator, left, right)
+    checknumberoperands(op, left, right)
     return left * right
   elseif optype == tt.PLUS then
     if type(left) == "number" and type(right) == "number" then
@@ -83,32 +87,45 @@ interpreter.binary_expr = function(expr)
     elseif type(left) == "string" and type(right) == "string" then
       return left .. right
     else
-      error(runtimeerror(expr.operator, "Operands must be two numbers or two strings."))
+      error(runtimeerror(op, "Operands must be two numbers or two strings."))
     end
   elseif optype == tt.GREATER then
-    checknumberoperands(expr.operator, left, right)
+    checknumberoperands(op, left, right)
     return left > right
   elseif optype == tt.GREATER_EQUAL then
-    checknumberoperands(expr.operator, left, right)
+    checknumberoperands(op, left, right)
     return left >= right
   elseif optype == tt.LESS then
-    checknumberoperands(expr.operator, left, right)
+    checknumberoperands(op, left, right)
     return left < right
   elseif optype == tt.LESS_EQUAL then
-    checknumberoperands(expr.operator, left, right)
+    checknumberoperands(op, left, right)
     return left <= right
   elseif optype == tt.BANG_EQUAL then return not isequal(left, right)
   elseif optype == tt.EQUAL_EQUAL then return isequal(left, right)
   end
 end
+interpreter["stmt.expression"] = function(stmt)
+  evaluate(stmt.expression)
+end
+interpreter["stmt.print"] = function(stmt)
+  local value = evaluate(stmt.expression)
+  print(stringify(value))
+end
 
 return {
-  interpret = function(expr)
-    local ok, result = pcall(evaluate, expr)
-    if ok then
-      print(stringify(result))
-    else
-      e.runtimeerror(result)
+  interpret = function(statements)
+    local ok, err = pcall(function()
+      for _, statement in ipairs(statements) do
+        execute(statement)
+      end
+    end)
+    if not ok then
+      if type(err) == "table" then
+        e.runtimeerror(err)
+      else -- internal error, probably should be handled better (xpcall?)
+        error(err)
+      end
     end
   end,
 }
