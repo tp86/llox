@@ -88,6 +88,7 @@ local function parse(tokens)
     if match { tt.TRUE } then return expr.literal(true) end
     if match { tt.NIL } then return expr.literal(nil) end
     if match { tt.NUMBER, tt.STRING } then return expr.literal(previous().literal) end
+    if match { tt.IDENTIFIER } then return expr.variable(previous()) end
     if match { tt.LEFT_PAREN } then
       local expression = expression() ---@diagnostic disable-line: redefined-local
       consume(tt.RIGHT_PAREN, "Expect ')' after expression.")
@@ -132,9 +133,33 @@ local function parse(tokens)
     return expressionstatement()
   end
 
+  local function vardeclaration()
+    local name = consume(tt.IDENTIFIER, "Expect variable name.")
+    local initializer
+    if match { tt.EQUAL } then
+      initializer = expression()
+    end
+    consume(tt.SEMICOLON, "Expect ';' after variable declaration.")
+    return stmt.var(name, initializer)
+  end
+
+  local function declaration()
+    local ok, result = pcall(function()
+      if match { tt.VAR } then return vardeclaration() end
+      return statement()
+    end)
+    if ok then
+      return result
+    else
+      if result == "PARSE_ERROR" then
+        synchronize()
+      end
+    end
+  end
+
   local statements = {}
   while not isatend() do
-    statements[#statements + 1] = statement()
+    statements[#statements + 1] = declaration()
   end
   return statements
 end

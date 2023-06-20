@@ -22,8 +22,15 @@ local function error(object, message)
   end
 end
 
+local function makeruntimeerror(token, message)
+  return {
+    token = token,
+    message = message,
+  }
+end
+
 local function runtimeerror(err)
-  io.stderr:write(("%s\n[line %s]"):format(err.message, err.token.line))
+  io.stderr:write(("%s\n[line %s]\n"):format(err.message, err.token.line))
   hadruntimeerror = true
 end
 
@@ -32,4 +39,5 @@ return {
   hadruntimeerror = hadruntimeerror,
   error = error,
   runtimeerror = runtimeerror,
+  makeruntimeerror = makeruntimeerror,
 }

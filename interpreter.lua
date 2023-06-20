@@ -1,6 +1,10 @@
 local tt = require("tokentype")
 local interpreter = require("visitor").make("interpreter")
 local e = require("error")
+local makeenv = require("environment")
+
+local environment = makeenv()
+local nilvalue = {} -- sentinel value for declaring uninitialized variables
 
 local function evaluate(expr)
   return expr:accept(interpreter)
@@ -11,22 +15,15 @@ local function execute(stmt)
 end
 
 local function istruthy(value)
-  if value == nil then return false end
+  if value == nilvalue then return false end
   if type(value) == "boolean" then return value end
   return true
 end
 
 local function isequal(left, right)
-  if left == nil and right == nil then return true end
-  if left == nil then return false end
+  if left == nilvalue and right == nilvalue then return true end
+  if left == nilvalue then return false end
   return left == right
-end
-
-local function runtimeerror(token, message)
-  return {
-    token = token,
-    message = message,
-  }
 end
 
 local function checknumberoperands(operator, ...)
@@ -36,12 +33,12 @@ local function checknumberoperands(operator, ...)
     result = result and type(operand) == "number"
   end
   if not result then
-    error(runtimeerror(operator, "Operand must be a number."))
+    error(e.makeruntimeerror(operator, "Operand must be a number."))
   end
 end
 
 local function stringify(value)
-  if value == nil then return "nil" end
+  if value == nilvalue then return "nil" end
   if type(value) == "number" then
     local text = tostring(value)
     if text:sub(-2, -1) == ".0" then
@@ -53,6 +50,7 @@ local function stringify(value)
 end
 
 interpreter["expr.literal"] = function(expr)
+  if expr.value == nil then return nilvalue end
   return expr.value
 end
 interpreter["expr.grouping"] = function(expr)
@@ -75,35 +73,45 @@ interpreter["expr.binary"] = function(expr)
   if optype == tt.MINUS then
     checknumberoperands(op, left, right)
     return left - right
-  elseif optype == tt.SLASH then
+  end
+  if optype == tt.SLASH then
     checknumberoperands(op, left, right)
     return left / right
-  elseif optype == tt.STAR then
+  end
+  if optype == tt.STAR then
     checknumberoperands(op, left, right)
     return left * right
-  elseif optype == tt.PLUS then
+  end
+  if optype == tt.PLUS then
     if type(left) == "number" and type(right) == "number" then
       return left + right
     elseif type(left) == "string" and type(right) == "string" then
       return left .. right
     else
-      error(runtimeerror(op, "Operands must be two numbers or two strings."))
+      error(e.makeruntimeerror(op, "Operands must be two numbers or two strings."))
     end
-  elseif optype == tt.GREATER then
+  end
+  if optype == tt.GREATER then
     checknumberoperands(op, left, right)
     return left > right
-  elseif optype == tt.GREATER_EQUAL then
+  end
+  if optype == tt.GREATER_EQUAL then
     checknumberoperands(op, left, right)
     return left >= right
-  elseif optype == tt.LESS then
+  end
+  if optype == tt.LESS then
     checknumberoperands(op, left, right)
     return left < right
-  elseif optype == tt.LESS_EQUAL then
+  end
+  if optype == tt.LESS_EQUAL then
     checknumberoperands(op, left, right)
     return left <= right
-  elseif optype == tt.BANG_EQUAL then return not isequal(left, right)
-  elseif optype == tt.EQUAL_EQUAL then return isequal(left, right)
   end
+  if optype == tt.BANG_EQUAL then return not isequal(left, right) end
+  if optype == tt.EQUAL_EQUAL then return isequal(left, right) end
+end
+interpreter["expr.variable"] = function(expr)
+  return environment:get(expr.name)
 end
 interpreter["stmt.expression"] = function(stmt)
   evaluate(stmt.expression)
@@ -111,6 +119,13 @@ end
 interpreter["stmt.print"] = function(stmt)
   local value = evaluate(stmt.expression)
   print(stringify(value))
+end
+interpreter["stmt.var"] = function(stmt)
+  local value = nilvalue
+  if stmt.initializer then
+    value = evaluate(stmt.initializer)
+  end
+  environment:define(stmt.name.lexeme, value)
 end
 
 return {
@@ -121,11 +136,15 @@ return {
       end
     end)
     if not ok then
+      ---[[
       if type(err) == "table" then
-        e.runtimeerror(err)
+      --]]
+      e.runtimeerror(err)
+      ---[[
       else -- internal error, probably should be handled better (xpcall?)
         error(err)
       end
+      --]]
     end
   end,
 }
