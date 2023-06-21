@@ -1,4 +1,5 @@
 local type_fields = {
+  assign = { "name", "value" },
   binary = { "left", "operator", "right" },
   grouping = { "expression" },
   literal = { "value" },

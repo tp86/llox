@@ -112,8 +112,39 @@ local function parse(tokens)
   local comparison = leftassociativebinary({ tt.GREATER, tt.GREATER_EQUAL, tt.LESS, tt.LESS_EQUAL }, term)
   local equality = leftassociativebinary({ tt.BANG_EQUAL, tt.EQUAL_EQUAL }, comparison)
 
+  local function assignment()
+    local expression = equality() ---@diagnostic disable-line: redefined-local
+
+    if match { tt.EQUAL } then
+      local equals = previous()
+      local value = assignment()
+
+      if expression.type == "expr.variable" then
+        local name = expression.name
+        return expr.assign(name, value)
+      end
+
+      e.error(equals, "Invalid assignment target.")
+    end
+
+    return expression
+  end
+
   expression = function()
-    return equality()
+    return assignment()
+  end
+
+  local declaration
+
+  local function block()
+    local statements = {}
+
+    while not check(tt.RIGHT_BRACE) and not isatend() do
+      statements[#statements + 1] = declaration()
+    end
+
+    consume(tt.RIGHT_BRACE, "Expect '}' after block.")
+    return statements
   end
 
   local function printstatement()
@@ -130,6 +161,7 @@ local function parse(tokens)
 
   local function statement()
     if match { tt.PRINT } then return printstatement() end
+    if match { tt.LEFT_BRACE } then return stmt.block(block()) end
     return expressionstatement()
   end
 
@@ -143,7 +175,7 @@ local function parse(tokens)
     return stmt.var(name, initializer)
   end
 
-  local function declaration()
+  declaration = function()
     local ok, result = pcall(function()
       if match { tt.VAR } then return vardeclaration() end
       return statement()

@@ -14,6 +14,17 @@ local function execute(stmt)
   stmt:accept(interpreter)
 end
 
+local function executeblock(statements, newenvironment)
+  local previousenvironment = environment
+  pcall(function()
+    environment = newenvironment
+    for _, statement in ipairs(statements) do
+      execute(statement)
+    end
+  end)
+  environment = previousenvironment
+end
+
 local function istruthy(value)
   if value == nilvalue then return false end
   if type(value) == "boolean" then return value end
@@ -113,6 +124,11 @@ end
 interpreter["expr.variable"] = function(expr)
   return environment:get(expr.name)
 end
+interpreter["expr.assign"] = function(expr)
+  local value = evaluate(expr.value)
+  environment:assign(expr.name, value)
+  return value
+end
 interpreter["stmt.expression"] = function(stmt)
   evaluate(stmt.expression)
 end
@@ -126,6 +142,9 @@ interpreter["stmt.var"] = function(stmt)
     value = evaluate(stmt.initializer)
   end
   environment:define(stmt.name.lexeme, value)
+end
+interpreter["stmt.block"] = function(stmt)
+  executeblock(stmt.statements, makeenv(environment))
 end
 
 return {
