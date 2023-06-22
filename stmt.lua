@@ -4,6 +4,7 @@ local type_fields = {
   ["if"] = { "condition", "thenbranch", "elsebranch" },
   print = { "expression" },
   var = { "name", "initializer" },
+  ["while"] = { "condition", "body" },
 }
 
 local makeconstructors = require("base").makeconstructors

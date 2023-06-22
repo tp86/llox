@@ -151,7 +151,7 @@ local function parse(tokens)
     return assignment()
   end
 
-  local declaration, statement
+  local declaration, vardeclaration, statement
 
   local function block()
     local statements = {}
@@ -183,20 +183,69 @@ local function parse(tokens)
     return stmt.print(value)
   end
 
+  local function whilestatement()
+    consume(tt.LEFT_PAREN, "Expect '(' after 'while'.")
+    local condition = expression()
+    consume(tt.RIGHT_PAREN, "Expect ')' after condition.")
+    local body = statement()
+    return stmt["while"](condition, body)
+  end
+
   local function expressionstatement()
     local expression = expression() ---@diagnostic disable-line:redefined-local
     consume(tt.SEMICOLON, "Expect ';' after expression.")
     return stmt.expression(expression)
   end
 
+  local function forstatement() -- XXX syntactic sugar implementation
+    consume(tt.LEFT_PAREN, "Expect '(' after 'for'.")
+
+    local initializer
+    if match { tt.SEMICOLON } then
+    elseif match { tt.VAR } then
+      initializer = vardeclaration()
+    else
+      initializer = expressionstatement()
+    end
+
+    local condition
+    if not check(tt.SEMICOLON) then
+      condition = expression()
+    end
+    consume(tt.SEMICOLON, "Expect ';' after loop condition.")
+
+    local increment
+    if not check(tt.RIGHT_PAREN) then
+      increment = expression()
+    end
+    consume(tt.RIGHT_PAREN, "Expect ')' after for clauses.")
+
+    local body = statement()
+
+    if increment then
+      body = stmt.block({ body, stmt.expression(increment) })
+    end
+
+    if not condition then condition = expr.literal(true) end
+    body = stmt["while"](condition, body)
+
+    if initializer then
+      body = stmt.block({ initializer, body })
+    end
+
+    return body
+  end
+
   statement = function()
+    if match { tt.FOR } then return forstatement() end
     if match { tt.IF } then return ifstatement() end
     if match { tt.PRINT } then return printstatement() end
+    if match { tt.WHILE } then return whilestatement() end
     if match { tt.LEFT_BRACE } then return stmt.block(block()) end
     return expressionstatement()
   end
 
-  local function vardeclaration()
+  vardeclaration = function()
     local name = consume(tt.IDENTIFIER, "Expect variable name.")
     local initializer
     if match { tt.EQUAL } then

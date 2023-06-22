@@ -164,6 +164,11 @@ interpreter["stmt.if"] = function(stmt)
     execute(stmt.elsebranch)
   end
 end
+interpreter["stmt.while"] = function(stmt)
+  while istruthy(evaluate(stmt.condition)) do
+    execute(stmt.body)
+  end
+end
 
 return {
   interpret = function(statements)
