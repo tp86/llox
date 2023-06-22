@@ -3,6 +3,7 @@ local type_fields = {
   binary = { "left", "operator", "right" },
   grouping = { "expression" },
   literal = { "value" },
+  logical = { "left", "operator", "right" },
   unary = { "operator", "right" },
   variable = { "name" },
 }

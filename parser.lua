@@ -112,12 +112,29 @@ local function parse(tokens)
   local comparison = leftassociativebinary({ tt.GREATER, tt.GREATER_EQUAL, tt.LESS, tt.LESS_EQUAL }, term)
   local equality = leftassociativebinary({ tt.BANG_EQUAL, tt.EQUAL_EQUAL }, comparison)
 
+  local function logicalop(optype, higherprecedencerule)
+    return function()
+      local expression = higherprecedencerule() ---@diagnostic disable-line: redefined-local
+
+      while match { optype } do
+        local operator = previous()
+        local right = higherprecedencerule()
+        expression = expr.logical(expression, operator, right)
+      end
+
+      return expression
+    end
+  end
+
+  local and_ = logicalop(tt.AND, equality)
+  local or_ = logicalop(tt.OR, and_)
+
   local function assignment()
-    local expression = equality() ---@diagnostic disable-line: redefined-local
+    local expression = or_() ---@diagnostic disable-line: redefined-local
 
     if match { tt.EQUAL } then
       local equals = previous()
-      local value = assignment()
+      local value = assignment() -- right-associativity
 
       if expression.type == "expr.variable" then
         local name = expression.name
@@ -134,7 +151,7 @@ local function parse(tokens)
     return assignment()
   end
 
-  local declaration
+  local declaration, statement
 
   local function block()
     local statements = {}
@@ -145,6 +162,19 @@ local function parse(tokens)
 
     consume(tt.RIGHT_BRACE, "Expect '}' after block.")
     return statements
+  end
+
+  local function ifstatement()
+    consume(tt.LEFT_PAREN, "Expect '(' after 'if'.")
+    local condition = expression()
+    consume(tt.RIGHT_PAREN, "Expect ')' after if condition.")
+
+    local thenbranch, elsebranch = (statement()) ---@diagnostic disable-line: unbalanced-assignments
+    if match { tt.ELSE } then
+      elsebranch = statement()
+    end
+
+    return stmt["if"](condition, thenbranch, elsebranch)
   end
 
   local function printstatement()
@@ -159,7 +189,8 @@ local function parse(tokens)
     return stmt.expression(expression)
   end
 
-  local function statement()
+  statement = function()
+    if match { tt.IF } then return ifstatement() end
     if match { tt.PRINT } then return printstatement() end
     if match { tt.LEFT_BRACE } then return stmt.block(block()) end
     return expressionstatement()

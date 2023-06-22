@@ -129,6 +129,17 @@ interpreter["expr.assign"] = function(expr)
   environment:assign(expr.name, value)
   return value
 end
+interpreter["expr.logical"] = function(expr)
+  local left = evaluate(expr.left)
+
+  if expr.operator.type == tt.OR then
+    if istruthy(left) then return left end
+  else
+    if not istruthy(left) then return left end
+  end
+
+  return evaluate(expr.right)
+end
 interpreter["stmt.expression"] = function(stmt)
   evaluate(stmt.expression)
 end
@@ -145,6 +156,13 @@ interpreter["stmt.var"] = function(stmt)
 end
 interpreter["stmt.block"] = function(stmt)
   executeblock(stmt.statements, makeenv(environment))
+end
+interpreter["stmt.if"] = function(stmt)
+  if istruthy(evaluate(stmt.condition)) then
+    execute(stmt.thenbranch)
+  elseif stmt.elsebranch then
+    execute(stmt.elsebranch)
+  end
 end
 
 return {
