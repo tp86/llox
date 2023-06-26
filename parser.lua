@@ -97,6 +97,36 @@ local function parse(tokens)
     error(parseerror(peek(), "Expect expression."))
   end
 
+  local function finishcall(callee)
+    local arguments = {}
+    if not check(tt.RIGHT_PAREN) then
+      repeat
+        if #arguments >= 255 then
+          parseerror(peek(), "Can't have more than 255 arguments.")
+        end
+        arguments[#arguments + 1] = expression()
+      until not match { tt.COMMA }
+    end
+
+    local paren = consume(tt.RIGHT_PAREN, "Expect ')' after arguments.")
+
+    return expr.call(callee, paren, arguments)
+  end
+
+  local function call()
+    local expression = primary() ---@diagnostic disable-line: redefined-local
+
+    while true do
+      if match { tt.LEFT_PAREN } then
+        expression = finishcall(expression)
+      else
+        break
+      end
+    end
+
+    return expression
+  end
+
   local function unary()
     if match { tt.BANG, tt.MINUS } then
       local operator = previous()
@@ -104,7 +134,7 @@ local function parse(tokens)
       return expr.unary(operator, right)
     end
 
-    return primary()
+    return call()
   end
 
   local factor = leftassociativebinary({ tt.SLASH, tt.STAR }, unary)
@@ -141,7 +171,7 @@ local function parse(tokens)
         return expr.assign(name, value)
       end
 
-      e.error(equals, "Invalid assignment target.")
+      parseerror(equals, "Invalid assignment target.")
     end
 
     return expression
@@ -236,10 +266,21 @@ local function parse(tokens)
     return body
   end
 
+  local function returnstatement()
+    local keyword = previous()
+    local value
+    if not check(tt.SEMICOLON) then
+      value = expression()
+    end
+    consume(tt.SEMICOLON, "Expect ';' after return value.")
+    return stmt["return"](keyword, value)
+  end
+
   statement = function()
     if match { tt.FOR } then return forstatement() end
     if match { tt.IF } then return ifstatement() end
     if match { tt.PRINT } then return printstatement() end
+    if match { tt.RETURN } then return returnstatement() end
     if match { tt.WHILE } then return whilestatement() end
     if match { tt.LEFT_BRACE } then return stmt.block(block()) end
     return expressionstatement()
@@ -255,8 +296,27 @@ local function parse(tokens)
     return stmt.var(name, initializer)
   end
 
+  local function fundeclaration(kind)
+    local name = consume(tt.IDENTIFIER, "Expect " .. kind .. " name.")
+    consume(tt.LEFT_PAREN, "Expect '(' after " .. kind .. " name.")
+    local parameters = {}
+    if not check(tt.RIGHT_PAREN) then
+      repeat
+        if #parameters >= 255 then
+          parseerror(peek(), "Can't have more than 255 parameters.")
+        end
+        parameters[#parameters + 1] = consume(tt.IDENTIFIER, "Expect parameter name.")
+      until not match { tt.COMMA }
+    end
+    consume(tt.RIGHT_PAREN, "Expect ')' after parameters.")
+    consume(tt.LEFT_BRACE, "Expect '{' before " .. kind .. " body.")
+    local body = block()
+    return stmt["function"](name, parameters, body)
+  end
+
   declaration = function()
     local ok, result = pcall(function()
+      if match { tt.FUN } then return fundeclaration("function") end
       if match { tt.VAR } then return vardeclaration() end
       return statement()
     end)

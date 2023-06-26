@@ -3,8 +3,16 @@ local interpreter = require("visitor").make("interpreter")
 local e = require("error")
 local makeenv = require("environment")
 
-local environment = makeenv()
+local globals = makeenv()
+local environment = globals
 local nilvalue = {} -- sentinel value for declaring uninitialized variables
+
+globals:define("clock", setmetatable({
+  arity = function() return 0 end,
+  call = function()
+    return os.clock()
+  end,
+}, { __tostring = function() return "<native fn>" end }))
 
 local function evaluate(expr)
   return expr:accept(interpreter)
@@ -16,13 +24,16 @@ end
 
 local function executeblock(statements, newenvironment)
   local previousenvironment = environment
-  pcall(function()
+  local ok, err = pcall(function()
     environment = newenvironment
     for _, statement in ipairs(statements) do
       execute(statement)
     end
   end)
   environment = previousenvironment
+  if not ok then
+    error(err)
+  end
 end
 
 local function istruthy(value)
@@ -58,6 +69,13 @@ local function stringify(value)
     return text
   end
   return tostring(value)
+end
+
+local function makereturn(value)
+  return {
+    type = "return",
+    value = value,
+  }
 end
 
 interpreter["expr.literal"] = function(expr)
@@ -140,6 +158,25 @@ interpreter["expr.logical"] = function(expr)
 
   return evaluate(expr.right)
 end
+interpreter["expr.call"] = function(expr)
+  local callee = evaluate(expr.callee)
+
+  local arguments = {}
+  for _, argument in ipairs(expr.arguments) do
+    arguments[#arguments + 1] = evaluate(argument)
+  end
+
+  if not callee.call then
+    error(e.makeruntimeerror(expr.paren, "Can only call functions and classes."))
+  end
+
+  if #arguments ~= callee:arity() then
+    error(e.makeruntimeerror(expr.paren,
+      ("Expected %s arguments but got %s."):format(callee:arity(), #arguments)))
+  end
+
+  return callee:call(arguments)
+end
 interpreter["stmt.expression"] = function(stmt)
   evaluate(stmt.expression)
 end
@@ -169,6 +206,17 @@ interpreter["stmt.while"] = function(stmt)
     execute(stmt.body)
   end
 end
+interpreter["stmt.function"] = function(stmt)
+  local func = require("function")(stmt, environment)
+  environment:define(stmt.name.lexeme, func)
+end
+interpreter["stmt.return"] = function(stmt)
+  local value
+  if stmt.value then
+    value = evaluate(stmt.value)
+  end
+  error(makereturn(value)) -- would be better to use coroutines to exit from arbitrarily nested statements in function
+end
 
 return {
   interpret = function(statements)
@@ -180,13 +228,15 @@ return {
     if not ok then
       ---[[
       if type(err) == "table" then
-      --]]
-      e.runtimeerror(err)
-      ---[[
+        --]]
+        e.runtimeerror(err)
+        ---[[
       else -- internal error, probably should be handled better (xpcall?)
         error(err)
       end
       --]]
     end
   end,
+  globals = globals,
+  executeblock = executeblock,
 }
