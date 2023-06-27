@@ -2,6 +2,7 @@ local tt = require("tokentype")
 local interpreter = require("visitor").make("interpreter")
 local e = require("error")
 local makeenv = require("environment")
+local class = require("class")
 
 local globals = makeenv()
 local environment = globals
@@ -233,6 +234,28 @@ interpreter["stmt.return"] = function(stmt)
     value = evaluate(stmt.value)
   end
   error(makereturn(value)) -- would be better to use coroutines to exit from arbitrarily nested statements in function
+end
+interpreter["stmt.class"] = function(stmt)
+  environment:define(stmt.name.lexeme, nilvalue)
+  local class = class(stmt.name.lexeme) ---@diagnostic disable-line: redefined-local
+  environment:assign(stmt.name, class)
+end
+interpreter["expr.get"] = function(expr)
+  local object = evaluate(expr.object)
+  if object.type == "instance" then
+    return object:get(expr.name)
+  end
+  error(e.makeruntimeerror(expr.name, "Only instances have properties."))
+end
+interpreter["expr.set"] = function(expr)
+  local object = evaluate(expr.object)
+
+  if object.type ~= "instance" then
+    error(e.makeruntimeerror(expr.name, "Only instances have fields."))
+  end
+  local value = evaluate(expr.value)
+  object:set(expr.name, value)
+  return value
 end
 
 local function resolve(expr, depth)

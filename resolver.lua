@@ -138,5 +138,16 @@ resolver["expr.logical"] = resolver["expr.binary"]
 resolver["expr.unary"] = function(expr)
   resolve(expr.right)
 end
+resolver["stmt.class"] = function(stmt)
+  declare(stmt.name)
+  define(stmt.name)
+end
+resolver["expr.get"] = function(expr)
+  resolve(expr.object)
+end
+resolver["expr.set"] = function(expr)
+  resolve(expr.value)
+  resolve(expr.object)
+end
 
 return resolvestatements

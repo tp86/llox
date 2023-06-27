@@ -119,6 +119,9 @@ local function parse(tokens)
     while true do
       if match { tt.LEFT_PAREN } then
         expression = finishcall(expression)
+      elseif match { tt.DOT } then
+        local name  = consume(tt.IDENTIFIER, "Expect property name after '.'.")
+        expression = expr.get(expression, name)
       else
         break
       end
@@ -169,6 +172,8 @@ local function parse(tokens)
       if expression.type == "expr.variable" then
         local name = expression.name
         return expr.assign(name, value)
+      elseif expression.type == "expr.get" then
+        return expr.set(expression.object, expression.name, value)
       end
 
       parseerror(equals, "Invalid assignment target.")
@@ -314,8 +319,22 @@ local function parse(tokens)
     return stmt["function"](name, parameters, body)
   end
 
+  local function classdeclaration()
+    local name = consume(tt.IDENTIFIER, "Expect class name.")
+    consume(tt.LEFT_BRACE, "Expect '{' before class body.")
+
+    local methods = {}
+    while not check(tt.RIGHT_BRACE) and not isatend() do
+      methods[#methods+1] = fundeclaration("method")
+    end
+
+    consume(tt.RIGHT_BRACE, "Expect '}' after class body.")
+    return stmt.class(name, methods)
+  end
+
   declaration = function()
     local ok, result = pcall(function()
+      if match { tt.CLASS } then return classdeclaration() end
       if match { tt.FUN } then return fundeclaration("function") end
       if match { tt.VAR } then return vardeclaration() end
       return statement()
