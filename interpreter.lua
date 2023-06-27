@@ -5,7 +5,10 @@ local makeenv = require("environment")
 
 local globals = makeenv()
 local environment = globals
-local nilvalue = {} -- sentinel value for declaring uninitialized variables
+-- sentinel value for declaring uninitialized variables
+-- needed for tracking variables in environment
+local nilvalue = {}
+local locals = {}
 
 globals:define("clock", setmetatable({
   arity = function() return 0 end,
@@ -78,6 +81,15 @@ local function makereturn(value)
   }
 end
 
+local function lookupvariable(name, expr)
+  local distance = locals[expr]
+  if distance then
+    return environment:getat(distance, name.lexeme)
+  else
+    return globals:get(name)
+  end
+end
+
 interpreter["expr.literal"] = function(expr)
   if expr.value == nil then return nilvalue end
   return expr.value
@@ -140,11 +152,16 @@ interpreter["expr.binary"] = function(expr)
   if optype == tt.EQUAL_EQUAL then return isequal(left, right) end
 end
 interpreter["expr.variable"] = function(expr)
-  return environment:get(expr.name)
+  return lookupvariable(expr.name, expr)
 end
 interpreter["expr.assign"] = function(expr)
   local value = evaluate(expr.value)
-  environment:assign(expr.name, value)
+  local distance = locals[expr]
+  if distance then
+    environment:assignat(distance, expr.name, value)
+  else
+    globals:assign(expr.name, value)
+  end
   return value
 end
 interpreter["expr.logical"] = function(expr)
@@ -218,6 +235,10 @@ interpreter["stmt.return"] = function(stmt)
   error(makereturn(value)) -- would be better to use coroutines to exit from arbitrarily nested statements in function
 end
 
+local function resolve(expr, depth)
+  locals[expr] = depth
+end
+
 return {
   interpret = function(statements)
     local ok, err = pcall(function()
@@ -237,6 +258,6 @@ return {
       --]]
     end
   end,
-  globals = globals,
   executeblock = executeblock,
+  resolve = resolve,
 }

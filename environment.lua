@@ -1,6 +1,6 @@
 local e = require("error")
 
-local envmt = {
+local envmt = { -- possibly to refactor get* and assign* methods
   define = function(self, name, value)
     self.values[name] = value
   end,
@@ -10,6 +10,16 @@ local envmt = {
       return value
     end
     error(e.makeruntimeerror(name, "Undefined variable '" .. name.lexeme .. "'."))
+  end,
+  getat = function(self, distance, name)
+    return self:ancestor(distance)[name]
+  end,
+  ancestor = function(self, distance)
+    local values = self.values
+    for _ = 1, distance do
+      values = (getmetatable(values) or {}).__index
+    end
+    return values
   end,
   assign = function(self, name, value)
     -- we need to assign in correct environment, not current one
@@ -22,6 +32,9 @@ local envmt = {
       return
     end
     error(e.makeruntimeerror(name, "Undefined variable '" .. name.lexeme .. "'."))
+  end,
+  assignat = function(self, distance, name, value)
+    self:ancestor(distance)[name.lexeme] = value
   end,
 }
 envmt.__index = envmt

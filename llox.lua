@@ -4,10 +4,13 @@ local errorhandler = require("error")
 local scantokens = require("scanner")
 local parse = require("parser")
 local interpreter = require("interpreter")
+local resolve = require("resolver")
 
 local function run(source)
   local tokens = scantokens(source)
   local statements = parse(tokens)
+  if errorhandler.haderror then return end
+  resolve(statements)
   if errorhandler.haderror then return end
   interpreter.interpret(statements)
 end
