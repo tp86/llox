@@ -1,7 +1,16 @@
 local makeenv = require("environment")
 local executeblock = require("interpreter").executeblock
 
-local functionmt = {
+local functionmt
+
+local function makefunc(declaration, closure)
+  return setmetatable({
+    closure = closure,
+    declaration = declaration,
+  }, functionmt)
+end
+
+functionmt = {
   arity = function(self)
     return #self.declaration.params
   end,
@@ -18,15 +27,15 @@ local functionmt = {
       return result.value
     end
   end,
+  bind = function(self, instance)
+    local environment = makeenv(self.closure)
+    environment:define("this", instance)
+    return makefunc(self.declaration, environment)
+  end,
   __tostring = function(self)
     return "<fn " .. self.declaration.name.lexeme .. ">"
   end,
 }
 functionmt.__index = functionmt
 
-return function(declaration, closure)
-  return setmetatable({
-    closure = closure,
-    declaration = declaration,
-  }, functionmt)
-end
+return makefunc

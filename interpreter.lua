@@ -237,7 +237,14 @@ interpreter["stmt.return"] = function(stmt)
 end
 interpreter["stmt.class"] = function(stmt)
   environment:define(stmt.name.lexeme, nilvalue)
-  local class = class(stmt.name.lexeme) ---@diagnostic disable-line: redefined-local
+
+  local methods = {}
+  for _, method in ipairs(stmt.methods) do
+    local func = require("function")(method, environment)
+    methods[method.name.lexeme] = func
+  end
+
+  local class = class(stmt.name.lexeme, methods) ---@diagnostic disable-line: redefined-local
   environment:assign(stmt.name, class)
 end
 interpreter["expr.get"] = function(expr)
@@ -256,6 +263,9 @@ interpreter["expr.set"] = function(expr)
   local value = evaluate(expr.value)
   object:set(expr.name, value)
   return value
+end
+interpreter["expr.this"] = function(expr)
+  return lookupvariable(expr.keyword, expr)
 end
 
 local function resolve(expr, depth)

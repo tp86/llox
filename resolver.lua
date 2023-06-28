@@ -7,9 +7,17 @@ local scopes = {}
 local functiontype = {
   NONE = "NONE",
   FUNCTION = "FUNCTION",
+  METHOD = "METHOD",
+}
+
+local classtype = {
+  NONE = "NONE",
+  CLASS = "CLASS",
 }
 
 local currentfunction = functiontype.NONE
+
+local currentclass = classtype.NONE
 
 local function resolve(node)
   node:accept(resolver)
@@ -139,8 +147,22 @@ resolver["expr.unary"] = function(expr)
   resolve(expr.right)
 end
 resolver["stmt.class"] = function(stmt)
+  local enclosingclass = currentclass
+  currentclass = classtype.CLASS
+
   declare(stmt.name)
   define(stmt.name)
+
+  beginscope()
+  scopes[#scopes].this = true
+
+  for _, method in ipairs(stmt.methods) do
+    local declaration = functiontype.METHOD
+    resolvefunction(method, declaration)
+  end
+
+  endscope()
+  currentclass = enclosingclass
 end
 resolver["expr.get"] = function(expr)
   resolve(expr.object)
@@ -148,6 +170,12 @@ end
 resolver["expr.set"] = function(expr)
   resolve(expr.value)
   resolve(expr.object)
+end
+resolver["expr.this"] = function(expr)
+  if currentclass == classtype.NONE then
+    e.error(expr.keyword, "Can't use 'this' outside of a class.")
+  end
+  resolvelocal(expr, expr.keyword)
 end
 
 return resolvestatements

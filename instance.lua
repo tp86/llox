@@ -5,6 +5,10 @@ local instancemt = {
   get = function(self, name)
     local value = self.fields[name.lexeme]
     if value ~= nil then return value end
+
+    local method = self.class:findmethod(name.lexeme)
+    if method then return method:bind(self) end
+
     error(e.makeruntimeerror(name, "Undefined property '" .. name.lexeme .. "'."))
   end,
   set = function(self, name, value)

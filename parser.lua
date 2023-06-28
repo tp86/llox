@@ -88,6 +88,7 @@ local function parse(tokens)
     if match { tt.TRUE } then return expr.literal(true) end
     if match { tt.NIL } then return expr.literal(nil) end
     if match { tt.NUMBER, tt.STRING } then return expr.literal(previous().literal) end
+    if match { tt.THIS } then return expr.this(previous()) end
     if match { tt.IDENTIFIER } then return expr.variable(previous()) end
     if match { tt.LEFT_PAREN } then
       local expression = expression() ---@diagnostic disable-line: redefined-local
