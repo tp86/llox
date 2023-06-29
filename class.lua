@@ -1,9 +1,17 @@
 local instance = require("instance")
 
 local classmt = {
-  arity = function() return 0 end,
-  call = function(self)
+  arity = function(self)
+    local initializer = self:findmethod("init")
+    if initializer then return initializer:arity() end
+    return 0
+  end,
+  call = function(self, arguments)
     local instance = instance(self) ---@diagnostic disable-line: redefined-local
+    local initializer = self:findmethod("init")
+    if initializer then
+      initializer:bind(instance):call(arguments)
+    end
     return instance
   end,
   findmethod = function(self, name)

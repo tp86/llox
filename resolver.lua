@@ -7,6 +7,7 @@ local scopes = {}
 local functiontype = {
   NONE = "NONE",
   FUNCTION = "FUNCTION",
+  INITIALIZER = "INITIALIZER",
   METHOD = "METHOD",
 }
 
@@ -120,6 +121,9 @@ resolver["stmt.return"] = function(stmt)
     e.error(stmt.keyword, "Can't return from top-level code.")
   end
   if stmt.value then
+    if currentfunction == functiontype.INITIALIZER then
+      e.error(stmt.keyword, "Can't return a value from an initializer.")
+    end
     resolve(stmt.value)
   end
 end
@@ -158,6 +162,9 @@ resolver["stmt.class"] = function(stmt)
 
   for _, method in ipairs(stmt.methods) do
     local declaration = functiontype.METHOD
+    if method.name.lexeme == "init" then
+      declaration = functiontype.INITIALIZER
+    end
     resolvefunction(method, declaration)
   end
 

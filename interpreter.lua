@@ -225,7 +225,7 @@ interpreter["stmt.while"] = function(stmt)
   end
 end
 interpreter["stmt.function"] = function(stmt)
-  local func = require("function")(stmt, environment)
+  local func = require("function")(stmt, environment, false)
   environment:define(stmt.name.lexeme, func)
 end
 interpreter["stmt.return"] = function(stmt)
@@ -240,7 +240,7 @@ interpreter["stmt.class"] = function(stmt)
 
   local methods = {}
   for _, method in ipairs(stmt.methods) do
-    local func = require("function")(method, environment)
+    local func = require("function")(method, environment, method.name.lexeme == "init")
     methods[method.name.lexeme] = func
   end
 
