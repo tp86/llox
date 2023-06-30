@@ -7,6 +7,7 @@ local type_fields = {
   literal = { "value" },
   logical = { "left", "operator", "right" },
   set = { "object", "name", "value" },
+  super = { "keyword", "method" },
   this = { "keyword" },
   unary = { "operator", "right" },
   variable = { "name" },

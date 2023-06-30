@@ -14,6 +14,7 @@ local functiontype = {
 local classtype = {
   NONE = "NONE",
   CLASS = "CLASS",
+  SUBCLASS = "SUBCLASS",
 }
 
 local currentfunction = functiontype.NONE
@@ -157,6 +158,19 @@ resolver["stmt.class"] = function(stmt)
   declare(stmt.name)
   define(stmt.name)
 
+  if stmt.superclass and stmt.name.lexeme == stmt.superclass.name.lexeme then
+    e.error(stmt.superclass.name, "A class can't inherit from itself.")
+  end
+  if stmt.superclass then
+    currentclass = classtype.SUBCLASS
+    resolve(stmt.superclass)
+  end
+
+  if stmt.superclass then
+    beginscope()
+    scopes[#scopes].super = true
+  end
+
   beginscope()
   scopes[#scopes].this = true
 
@@ -169,6 +183,11 @@ resolver["stmt.class"] = function(stmt)
   end
 
   endscope()
+
+  if stmt.superclass then
+    endscope()
+  end
+
   currentclass = enclosingclass
 end
 resolver["expr.get"] = function(expr)
@@ -181,6 +200,14 @@ end
 resolver["expr.this"] = function(expr)
   if currentclass == classtype.NONE then
     e.error(expr.keyword, "Can't use 'this' outside of a class.")
+  end
+  resolvelocal(expr, expr.keyword)
+end
+resolver["expr.super"] = function(expr)
+  if currentclass == classtype.NONE then
+    e.error(expr.keyword, "Can't use 'super' outside of a class.")
+  elseif currentclass == classtype.CLASS then
+    e.error(expr.keyword, "Can't use 'super' in a class with no superclass.")
   end
   resolvelocal(expr, expr.keyword)
 end

@@ -88,6 +88,12 @@ local function parse(tokens)
     if match { tt.TRUE } then return expr.literal(true) end
     if match { tt.NIL } then return expr.literal(nil) end
     if match { tt.NUMBER, tt.STRING } then return expr.literal(previous().literal) end
+    if match { tt.SUPER } then
+      local keyword = previous()
+      consume(tt.DOT, "Expect '.' after 'super'.")
+      local method = consume(tt.IDENTIFIER, "Expect superclass method name.")
+      return expr.super(keyword, method)
+    end
     if match { tt.THIS } then return expr.this(previous()) end
     if match { tt.IDENTIFIER } then return expr.variable(previous()) end
     if match { tt.LEFT_PAREN } then
@@ -322,6 +328,13 @@ local function parse(tokens)
 
   local function classdeclaration()
     local name = consume(tt.IDENTIFIER, "Expect class name.")
+
+    local superclass
+    if match { tt.LESS } then
+      consume(tt.IDENTIFIER, "Expect superclass name.")
+      superclass = expr.variable(previous())
+    end
+
     consume(tt.LEFT_BRACE, "Expect '{' before class body.")
 
     local methods = {}
@@ -330,7 +343,7 @@ local function parse(tokens)
     end
 
     consume(tt.RIGHT_BRACE, "Expect '}' after class body.")
-    return stmt.class(name, methods)
+    return stmt.class(name, superclass, methods)
   end
 
   declaration = function()

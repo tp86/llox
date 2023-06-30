@@ -236,7 +236,19 @@ interpreter["stmt.return"] = function(stmt)
   error(makereturn(value)) -- would be better to use coroutines to exit from arbitrarily nested statements in function
 end
 interpreter["stmt.class"] = function(stmt)
+  local superclass
+  if stmt.superclass then
+    superclass = evaluate(stmt.superclass)
+    if superclass.type ~= "class" then
+      error(e.makeruntimeerror(stmt.superclass.name, "Superclass must be a class."))
+    end
+  end
   environment:define(stmt.name.lexeme, nilvalue)
+
+  if stmt.superclass then
+    environment = makeenv(environment)
+    environment:define("super", superclass)
+  end
 
   local methods = {}
   for _, method in ipairs(stmt.methods) do
@@ -244,7 +256,12 @@ interpreter["stmt.class"] = function(stmt)
     methods[method.name.lexeme] = func
   end
 
-  local class = class(stmt.name.lexeme, methods) ---@diagnostic disable-line: redefined-local
+  local class = class(stmt.name.lexeme, superclass, methods) ---@diagnostic disable-line: redefined-local
+
+  if superclass then
+    environment = environment.enclosing
+  end
+
   environment:assign(stmt.name, class)
 end
 interpreter["expr.get"] = function(expr)
@@ -266,6 +283,16 @@ interpreter["expr.set"] = function(expr)
 end
 interpreter["expr.this"] = function(expr)
   return lookupvariable(expr.keyword, expr)
+end
+interpreter["expr.super"] = function(expr)
+  local distance = locals[expr]
+  local superclass = environment:getat(distance, "super")
+  local object = environment:getat(distance - 1, "this")
+  local method = superclass:findmethod(expr.method.lexeme)
+  if not method then
+    error(e.makeruntimeerror(expr.method, "Undefined property '" .. expr.method.lexeme .. "'."))
+  end
+  return method:bind(object)
 end
 
 local function resolve(expr, depth)

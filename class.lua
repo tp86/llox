@@ -1,6 +1,7 @@
 local instance = require("instance")
 
 local classmt = {
+  type = "class",
   arity = function(self)
     local initializer = self:findmethod("init")
     if initializer then return initializer:arity() end
@@ -17,6 +18,9 @@ local classmt = {
   findmethod = function(self, name)
     local method = self.methods[name]
     if method then return method end
+    if self.superclass then
+      return self.superclass:findmethod(name)
+    end
   end,
   __tostring = function(self)
     return self.name
@@ -24,8 +28,9 @@ local classmt = {
 }
 classmt.__index = classmt
 
-return function(name, methods)
+return function(name, superclass, methods)
   return setmetatable({
+    superclass = superclass,
     methods = methods,
     name = name,
   }, classmt)

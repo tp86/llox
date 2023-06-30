@@ -1,6 +1,6 @@
 local type_fields = {
   block = { "statements" },
-  class = { "name", "methods" },
+  class = { "name", "superclass", "methods" },
   expression = { "expression" },
   ["function"] = { "name", "params", "body" },
   ["if"] = { "condition", "thenbranch", "elsebranch" },

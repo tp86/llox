@@ -41,6 +41,7 @@ envmt.__index = envmt
 
 return function(enclosing)
   return setmetatable({
+    enclosing = enclosing,
     values = setmetatable({}, { __index = (enclosing or {}).values }),
   }, envmt)
 end
